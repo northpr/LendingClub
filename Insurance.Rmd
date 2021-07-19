@@ -1,0 +1,567 @@
+---
+title: "Assignment"
+author: "Pat Patawee"
+date: "7/2/2021"
+output: html_document
+---
+
+## Setting up environment
+Import important libraries
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+library(caTools)
+library(ROCR)
+library(sqldf)
+library(corrplot)
+library(vcd)
+library(Metrics)
+library(rpart.plot)
+library(rpart)
+library(fastDummies)
+library(randomForest)
+library(pROC)
+library(kableExtra)
+```
+
+
+
+
+```{r}
+rawdf = read.csv("loans.csv")
+df = rawdf
+df = df[c(-1)]
+str(df)
+head(df)
+```
+## Cleaning the data
+Change char type to num
+```{r}
+cols_int = c(1,12,13)
+df[cols_int] = sapply(df[cols_int],as.integer)
+cols_num = c(6,10)
+df[cols_num] = sapply(df[cols_num],as.numeric)
+
+```
+
+change purpose to factor type
+```{r}
+df$purpose <-factor(df$purpose)
+str(df)
+```
+
+```{r}
+sum(is.na(df))
+(sum(is.na(df))/nrow(df)) * 100
+
+```
+number of missing data and percentage
+
+We can delete all the rows which has the missing value because it's only 1.9% pf the dataset
+
+```{r}
+df = na.omit(df)
+nrow(df)
+sum(is.na(df))
+```
+Delete the row with missing values and we still have 9508 rows
+
+```{r}
+summary(df)
+```
+
+
+
+
+
+<!-- Move the purpose to 2nd column and change type to numeric -->
+<!-- ```{r} -->
+<!-- tmpdata = tmpdata[c(-2)] -->
+<!-- tmpdata = tmpdata %>% -->
+<!--   relocate(purpose,.after =credit.policy) -->
+<!-- tmpdata[2] = sapply(tmpdata[2],as.numeric) -->
+
+<!-- str(tmpdata) -->
+<!-- df = tmpdata -->
+<!-- ``` -->
+
+
+Find the correlation of the data to fico
+```{r}
+cor_matrix = cor(df[-c(2)], method = "spearman")
+names = rownames(cor_matrix)
+abs_cor = abs(cor_matrix)
+data = data.frame(X_var = names,abs_cor = abs_cor,cor = cor_matrix)
+
+cortmp = data[order(data$abs_cor.fico)]
+cortmp['abs_cor.fico']
+
+
+```
+We could know that 'int.rate','revol.util', and 'credit.policy' has correlation with 'fico'
+
+```{r}
+cor_matrix = cor(df[-c(2)], method = "spearman",)
+cor_matrix = round(cor_matrix, 2)
+cor_matrix
+corrplot(cor_matrix,method='number')
+
+```
+## Check for the outliers
+
+
+```{r}
+
+bar <- ggplot(df,aes(fico))+geom_histogram(aes(fill=factor(not.fully.paid)),color='black',bins = 40,alpha=0.5)
+bar+scale_fill_manual(values = c("#FF5733","#44FF33"))+theme_bw()
+
+boxplot(fico~purpose,data=df,col='orange')
+```
+
+
+```{r}
+ggplot(df) +
+  aes(x = fico, y = int.rate) +
+  geom_point(shape = "circle", size = 1.5, colour = "#228B22")
+```
+
+We have outliers, we need to handle with which int.rate > 10 and fico > 1500
+```{r}
+df = df[-which(df$fico > 850),]
+df = df[-which(df$int.rate> 5),]
+df = df[-which(df$revol.util > 500),]
+df = df[-which(df$revol.bal > 75000),]
+
+
+```
+
+```{r}
+ggplot(df) +
+  aes(x = fico, y = int.rate) +
+  geom_point(shape = "circle", size = 1.5, colour = "#228B22")
+
+ggplot(df) +
+  aes(x = revol.bal, y = revol.util) +
+  geom_point(shape = "circle", size = 1.5, colour = "#228B22")
+
+ggplot(df) +
+  aes(x = fico, y = inq.last.6mths) +
+  geom_point(shape = "circle", size = 1.5, colour = "#228B22")
+
+ggplot(df) +
+  aes(x = fico, y = delinq.2yrs) +
+  geom_point(shape = "circle", size = 1.5, colour = "#228B22")
+```
+```{r}
+bar<- ggplot(df,aes(factor(purpose)))+geom_bar(aes(fill=factor(not.fully.paid)),position='dodge')
+bar+theme(axis.text.x =element_text(angle = 90,size = 10,vjust = 0.5))+theme_bw()
+
+box <- ggplot(df,aes(fico))+geom_histogram(aes(fill=factor(not.fully.paid)),color='black',bins = 40,alpha=0.5)
+box+scale_fill_manual(values = c("#FF5733","#44FF33"))+theme_bw()
+
+boxplot(fico~purpose,data=df,col='orange')
+```
+
+and now we delete the outliers of variable int.rate, revol.util and fico
+
+## Creating A Model
+### Linear Model
+Split for linear regression by using split ratio at 0.7
+```{r}
+set.seed(99)
+split = sample.split (df$fico, SplitRatio = 0.70)
+df_train = subset(df, split == TRUE)
+df_test = subset(df, split == FALSE)
+```
+
+# 3
+Building Linear Model
+```{r}
+linearMod = lm(fico ~ .,data = df_train)
+summary(linearMod)
+df_test$FicoLinear = predict(linearMod,df_test)
+```
+
+```{r}
+LinearFiRM = rmse(df_test$fico, df_test$FicoLinear)
+LinearFiRM
+```
+Now we have rmse value at 20.871 by using linear model
+
+```{r}
+linearMod = lm(fico ~ int.rate * purpose+ int.rate*installment + dti*days.with.cr.line +delinq.2yrs*pub.rec*not.fully.paid,data = df_train)
+summary(linearMod)
+df_test$FicoLinear = predict(linearMod,df_test)
+```
+
+```{r}
+LinearFiRM = rmse(df_test$fico, df_test$FicoLinear)
+LinearFiRM
+```
+### Logistic Regression
+split at the rate of 0.7
+```{r}
+set.seed(99)
+split = sample.split (df$not.fully.paid, SplitRatio = 0.70)
+df_train = subset(df, split == TRUE)
+df_test = subset(df, split == FALSE)
+```
+
+# 4
+For Baseline Accuracy
+```{r}
+t = table(df_test$not.fully.paid)
+t
+
+accuracy = t[1]/sum(t)
+cat("The accuracy is", round(accuracy,2))
+```
+
+
+Baseline accuracy is at 84%
+
+# 5
+```{r}
+LogRegModel = glm(not.fully.paid ~., family = binomial, df_train) 
+summary(LogRegModel)
+
+df_test$PredictedRisk = predict(LogRegModel, type = "response", df_test)
+LogRegPredict = predict(LogRegModel, type = "response", df_test)
+plot(df_test$PredictedRisk)
+
+df_test$PredictedRisk_Cat = ifelse(df_test$PredictedRisk > 0.25,1,0)
+t = table(df_test$not.fully.paid, df_test$PredictedRisk_Cat)
+```
+
+Accuracy Test
+```{r}
+t
+accuracy = sum(diag(t)/sum(t))
+cat("The accuracy is", round(accuracy,2))
+```
+
+
+```{r}
+ROCRpred = prediction (LogRegPredict, df_test$not.fully.paid)
+ROCRperf = performance (ROCRpred, "tpr", "fpr")
+plot (ROCRperf, colorize = TRUE, print.cutoffs.at = seq (0, 1, by = 0.01), text.adj = c(-0.2, 1.7))
+abline(v=0.25)
+AUCVal6 = as.numeric (performance (ROCRpred, "auc") @y.values) 
+
+cat("at threshold = 0.25 AUC Value is :", AUCVal6)
+
+```
+AUC Value around 0.68 at threshold = 0.25
+
+
+# 7
+What is the best threshold value to maximize true positive rate while keeping false positive at max 25% (or 0.25)?
+```{r}
+LogRegModel = glm(not.fully.paid ~ ., family = binomial, df_train) 
+summary(LogRegModel)
+
+df_test$PredictedRisk = predict(LogRegModel, type = "response", df_test)
+LogRegPredict = predict(LogRegModel, type = "response", df_test)
+
+plot(df_test$PredictedRisk)
+
+df_test$PredictedRisk_Cat = ifelse(df_test$PredictedRisk > 0.185,1,0)
+t = table(df_test$not.fully.paid, df_test$PredictedRisk_Cat)
+
+t
+accuracy = sum(diag(t)/sum(t))
+cat("The accuracy is", round(accuracy,2))
+```
+
+Best threshold if we want to keep false potive at 0.25 is 0.185
+
+```{r}
+ROCRpred = prediction (LogRegPredict, df_test$not.fully.paid)
+ROCRperf = performance (ROCRpred, "tpr", "fpr")
+plot (ROCRperf, colorize = TRUE, print.cutoffs.at = seq (0, 1, by = 0.1), text.adj = c(-0.2, 1.7))
+
+as.numeric (performance (ROCRpred, "auc") @y.values) 
+
+```
+
+# 8 Simpler model
+Using only int.rate to create Regression model
+```{r}
+LogRegModel = glm(not.fully.paid ~ int.rate , family = binomial, df_train) 
+summary(LogRegModel)
+
+df_test$PredictedRisk = predict(LogRegModel, type = "response", df_test)
+LogRegPredict = predict(LogRegModel, type = "response", df_test)
+
+
+plot(df_test$PredictedRisk)
+df_test$PredictedRisk_Cat = ifelse(df_test$PredictedRisk > 0.20,1,0)
+t = table(df_test$not.fully.paid, df_test$PredictedRisk_Cat)
+
+```
+Accuracy of my simple model
+```{r}
+t
+accuracy = sum(diag(t)/sum(t))
+cat("The accuracy is", round(accuracy,2))
+
+```
+
+
+```{r}
+ROCRpred = prediction (LogRegPredict, df_test$not.fully.paid)
+ROCRperf = performance (ROCRpred, "tpr", "fpr")
+plot (ROCRperf, colorize = TRUE, print.cutoffs.at = seq (0, 1, by = 0.05), text.adj = c(-0.2, 1.7))
+
+AUCVal = as.numeric (performance (ROCRpred, "auc") @y.values) 
+
+cat("The AUC Value of my model is", round(AUCVal,3))
+
+```
+# 9
+```{r}
+investment = df_test
+investment$profit = (1 + investment$int.rate) ^ 3 - 1
+investment$profit[investment$PredictedRisk_Cat == 1] = -1
+summary(investment$profit)
+sum(investment$profit)
+
+head(investment)
+```
+
+# 10 
+What is the average profit of a $1 investment in one of these high-interest loans?
+What proportion of the high-interest loans were not paid back in full?
+
+```{r}
+HighInterest = df_test
+HighInterest = HighInterest[which(HighInterest$int.rate >0.15),]
+HighInterest$profit = (1 + HighInterest$int.rate) ^ 3 - 1
+HighInterest$profit[HighInterest$PredictedRisk_Cat ==1] = -1
+
+summary(HighInterest$profit)
+
+HighIntProfit = sum(HighInterest$profit)
+
+proportion = mean(HighInterest$PredictedRisk_Cat)
+proportion
+```
+10.1 Every 1 dollar you invest you will lose 8.88 cent ( or 0.08 dollars )by use the mean of profit variable
+10.2 Proportion of the high-interest loans were not paid back in full is 0.69 or 69%
+
+
+# 11 
+What is the profit to an investor who invested $1 in each of these 100 loans? How does this compare to investing in all loans?
+How does this compare to investing in all loans?
+```{r}
+
+SelectedLoans = sqldf("select *
+                      from HighInterest
+                      order by PredictedRisk")
+
+SelectedLoans = head(SelectedLoans,100)
+SelectedLProfit = sum(SelectedLoans$profit)
+SelectedLProfit - HighIntProfit
+```
+11.1 Profit of the investor who invested 1 dollars in each of the loans will receive profit around 52 dollars
+11.2 Compare to investing in all loans will receive more around 89 dollars
+
+
+# 12
+### Decision Tree
+
+```{r}
+set.seed(99)
+split = sample.split (df$fico, SplitRatio = 0.70)
+df_train = subset(df, split == TRUE)
+df_test = subset(df, split == FALSE)
+```
+
+Decision Tree with Regression predict fico
+```{r}
+prpDCTR = rpart(fico ~ ., df_train,control = rpart.control(cp= 0.004))
+PredictFico = predict(prpDCTR, df_test, method = "anova")
+plot(df_test$fico, PredictFico)
+DeciTrRM=sqrt(mean((df_test$fico - PredictFico)^2))
+rpart.plot(prpDCTR)
+rpart.rules(prpDCTR, cover=TRUE)
+plotcp(prpDCTR)
+
+```
+```{r}
+DeciTrRM
+LinearFiRM
+cat("Different of RMSE is Decision Tree Model RMSE - Linear Model RMSE: ",DeciTrRM - LinearFiRM)
+```
+RMSE of Decision Tree is at 22.63 for Linear Regression is 20.67
+It means that Linear Regression slightly better because RMSE is lower than 1.96
+
+
+
+Decision Tree predict not.fully.paid
+```{r}
+set.seed(99)
+split = sample.split (df$not.fully.paid, SplitRatio = 0.70)
+df_train = subset(df, split == TRUE)
+df_test = subset(df, split == FALSE)
+```
+
+```{r}
+nfpDCTM = rpart(not.fully.paid~.,data=df_train, method = 'class',cp=0.002)
+prp(nfpDCTM)
+rpart.plot(nfpDCTM)
+printcp(nfpDCTM)
+plotcp(nfpDCTM)
+```
+
+# ```{r}
+# nfpPred = predict(nfpDCTM, newdata=df_test,type='class')
+# table = table(nfpPred, df_test$not.fully.paid)
+# table
+# accuracy = sum(diag(table))/(sum(table))
+# cat("The accuracy is", round(accuracy,3))
+# ```
+
+```{r}
+nfpPred = predict(nfpDCTM, newdata=df_test,type='prob')
+nfpPred_Cat = ifelse(nfpPred[, 2] > 0.2, 1, 0)
+
+table = table(nfpPred_Cat, df_test$not.fully.paid)
+table
+
+accuracy = sum(diag(table))/(sum(table))
+cat("The accuracy is", round(accuracy,2))
+
+ROCRpred = prediction (nfpPred[, 2], df_test$not.fully.paid)
+AUCVal12 = as.numeric (performance (ROCRpred, "auc") @y.values) # higher auc value is better
+performance (ROCRpred, "tpr", "fpr")
+plot (ROCRperf, colorize = TRUE, print.cutoffs.at = seq (0, 1, by = 0.1), text.adj = c(-0.2, 1.7))
+
+```
+
+AUC of Logistic Regression is higher than AUC of task 12 by 0.09
+```{r}
+AUCVal6
+AUCVal12
+AUCVal6 - AUCVal12
+```
+
+
+### Random Forest
+
+Random Forest with Regression to predict fico
+```{r}
+set.seed(99)
+split = sample.split (df$fico, SplitRatio = 0.70)
+df_train = subset(df, split == TRUE)
+df_test = subset(df, split == FALSE)
+```
+
+```{r}
+FicoForest = randomForest(fico~.,df_train, ntree=700, mtry=2)
+PredictForest = predict(FicoForest, df_test)
+```
+
+```{r}
+RanForRM = round(sqrt(mean((df_test$fico - PredictForest)^2)),2)
+cat("rmse is:", RanForRM)
+```
+
+```{r}
+RanForRM
+LinearFiRM
+cat("Different of RMSE is Random Forest Model RMSE - Linear Model RMSE: ",RanForRM - LinearFiRM)
+```
+
+
+Random Forest with Classification to predict not.fully.paid
+```{r}
+set.seed(99)
+split = sample.split (df$not.fully.paid, SplitRatio = 0.70)
+df_train = subset(df, split == TRUE)
+df_test = subset(df, split == FALSE)
+```
+
+```{r}
+NFPForest = randomForest(not.fully.paid ~ ., data = df_train, mtry = 3, ntree = 50)
+PredictNFP = predict(NFPForest, df_test, type = "class")
+```
+
+```{r}
+df_test$RandomForest = predict(NFPForest, df_test, type = "class")
+plot(PredictNFP)
+df_test$PredictedRisk = ifelse(df_test$RandomForest > 0.25,1,0)
+table(df_test$not.fully.paid, df_test$PredictedRisk)
+```
+
+```{r}
+ROCRpred = prediction (PredictNFP, df_test$not.fully.paid)
+ROCRperf = performance (ROCRpred, "tpr", "fpr")
+plot (ROCRperf, colorize = TRUE, print.cutoffs.at = seq (0, 1, by = 0.1), text.adj = c(-0.2, 1.7))
+
+
+AUCVal = as.numeric (performance (ROCRpred, "auc") @y.values) 
+
+cat("The AUC Value of my model is", round(AUCVal,3))
+
+```
+
+
+# 13
+## Clustering
+### Preparing Data for clustering
+```{r}
+df = rawdf
+df = na.omit(df)
+df = df[-which(df$fico > 850 ),]
+df = df[-which(df$int.rate> 5),]
+df = df[-which(df$revol.util > 500),]
+df = df[-which(df$revol.bal > 75000),]
+df = df[-c(1)]
+
+cols_num = c(1,12,13,6,10)
+df[cols_num] = sapply(df[cols_num],as.numeric)
+
+
+
+df_cluster = df
+df_cluster = fastDummies::dummy_cols(df_cluster, select_columns = "purpose")
+df_cluster = df_cluster[-c(2)]
+
+
+
+
+```
+
+Scale and build cluster
+```{r}
+df_cluster = df_cluster[c(1,2,6,7,9)]
+df_cluster = na.omit(df_cluster)
+df_scale = scale(df_cluster)
+km.out = kmeans(df_scale, 3 ,nstart=20)
+```
+
+```{r}
+N = 10
+information = rep ( NA, N )
+for ( i in 1: N ){
+  KM = kmeans ( df_scale, centers = i, iter.max = 35, nstart = 10 )
+  information [ i ] = KM$tot.withinss
+}
+
+plot ( information ~ seq ( 1:N ), type = "b", pch = 1, col = 2, ylab = "Total within Sum of Squares", lwd=2,
+       xlab = "Number of Clusters", main = "Selecting K by elbow method" )
+```
+
+```{r}
+plot(df_cluster, col = km.out$cluster)
+```
+
+
+```{r}
+cluster1 = subset(df_cluster, km.out$cluster == 1)
+cluster2 = subset(df_cluster, km.out$cluster == 2)
+cluster3 = subset(df_cluster, km.out$cluster == 3)
+
+```
