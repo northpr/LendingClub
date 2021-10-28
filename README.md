@@ -1,18 +1,18 @@
 # Data Science Credit Predictation, Investing: Project Overview
-- Create virtualization to have a better understanding of the data of banking system to lend people money.
+- Create virtualization to have a better understanding of the data of the banking system to lend people money.
 - Engineered features from the original variable to create a better model.
-- Optimized Linear Regression, Logistic Regression by using library in R to reach the perfect strategy to invest in.
+- They are optimized Linear Regression and Logistic Regression by using the library in R to reach the perfect investment strategy.
 
 ## Code and Resources Used
 **Program**: Rstudio
 **Packages**: dplyr, ggplot2, caTools, ROCR, corrplot, rpart,randomForest, and more.
 
 ## Data Cleaning
-After scraping the data and basic check of the data frame. I needed to clean the data so I could use and the following changes is below:
+After scraping the data and basic check of the data frame. I needed to clean the data so that I could use it, and the following changes are below:
 
 - Change some variables into factor type
 - Removed rows without data
-- Made a new columns which use to calculate the profit if we invest in
+- Made new columns which used to calculate the profit if we invest in
 - More fill NA or Remove depends on the data
 
 **Some example** of removing outliers
@@ -33,7 +33,7 @@ df = df[-which(df$revol.bal > 75000),]
 ```
 
 ## Data Virtualization
-To understand the model that we want to predict better, I've done analyzing for better understanding, clean and more tasks. I will give some small tasks here.
+To understand the model that we want to predict better, I have analysed for better understanding, clean and more tasks. I will give some small tasks here.
 
 We could know that ‘int.rate’,‘revol.util’, and ‘credit.policy’ has correlation with ‘fico’ by correlation plot
 ![Correlation Plot](https://github.com/northpr/LendingClub/blob/main/images/Screen%20Shot%202564-10-28%20at%2001.02.50.png)
@@ -64,20 +64,20 @@ boxplot(fico~purpose,data=df,col='orange')
 
 ## Model Building
 
-First, transformed the all the data type that it supposed to be and turn the categorical variables into dummy variables.
+First, transform all the data types that are supposed to be and turn the categorical variables into dummy variables.
 
-I created a lot of model and ealated using RMSE because it's the suitable value to calculate how good the model is.
+I created many models and evaluated them using RMSE because it is suitable to calculate how good the model is.
 
 My models:
 - Linear Model - to predict the fico score.
 - Logistic Regression - to predict the customer will pay the loan from their history or not.
-- Decision Tree - to predict the fico score and make it easier to explain by using decision tree.
-- Random Forest - the best result of all model here.
+- Decision Tree - to predict the fico score and make it easier to explain by using the decision tree.
+- Random Forest - the best result of all models here.
 - Clustering - Group the type of customers for further analysis.
 
-Some example of my model.
+Some examples of my model.
 
-To check the best threshold in this model to decide who will paid or not paid by using ROCR librarty
+To check the best threshold in this model to decide who will be paid or not paid by using ROCR library
 ![ROCR prediction](https://github.com/northpr/LendingClub/blob/main/images/Screen%20Shot%202564-10-28%20at%2010.56.14.png?raw=true)
 ```R
 ROCRpred = prediction (LogRegPredict, df_test$not.fully.paid)
@@ -112,9 +112,9 @@ plot(df_cluster, col = km.out$cluster)
 ```
 
 ## Model performance
-The random forest model is the best model for the linear regression but it depends on what you want to do with the data. If you want to do further marketing to make people invest it might be not the best for the people to understand.
+The random forest model is the best model for linear regression, but it depends on what you want to do with the data. For example, if you want to do further marketing to make people invest, it might not be the best to understand.
 
-Decision tree might be the best one to train the accountant to release a loan to customer. Lastly, Logistic regression seems to be the one which can tuning more and make meaningful things later!
+The decision tree might be the best one to train the accountant to release a loan to customers. Lastly, Logistic regression seems to be the one that can tune more and make meaningful things later!
 
 ## Final
 Thanks for viewing for further information please check .html file or check the R markdown file.
