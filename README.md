@@ -1,4 +1,4 @@
-# Data Science Credit Predictation, Investing: Project Overview
+# Data Science Credit Prediction, Investing: Project Overview
 - Create virtualization to have a better understanding of the data of the banking system to lend people money.
 - Engineered features from the original variable to create a better model.
 - They are optimized Linear Regression and Logistic Regression by using the library in R to reach the perfect investment strategy.
@@ -33,7 +33,7 @@ df = df[-which(df$revol.bal > 75000),]
 ```
 
 ## Data Virtualization
-To understand the model that we want to predict better, I have analysed for better understanding, clean and more tasks. I will give some small tasks here.
+To understand the model that we want to predict better, I have analysed for better understanding, clean and more tasks. So I will give some small tasks here.
 
 We could know that ‘int.rate’,‘revol.util’, and ‘credit.policy’ has correlation with ‘fico’ by correlation plot
 ![Correlation Plot](https://github.com/northpr/LendingClub/blob/main/images/Screen%20Shot%202564-10-28%20at%2001.02.50.png)
@@ -112,9 +112,9 @@ plot(df_cluster, col = km.out$cluster)
 ```
 
 ## Model performance
-The random forest model is the best model for linear regression, but it depends on what you want to do with the data. For example, if you want to do further marketing to make people invest, it might not be the best to understand.
+The random forest model is the best model for linear regression, but it depends on what you want to do with the data. For example, if you're going to do further marketing to make people invest, it might not be the best to understand.
 
 The decision tree might be the best one to train the accountant to release a loan to customers. Lastly, Logistic regression seems to be the one that can tune more and make meaningful things later!
 
 ## Final
-Thanks for viewing for further information please check .html file or check the R markdown file.
+Thanks for viewing. For further information, please check .html file or check the R markdown file.
