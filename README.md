@@ -18,7 +18,7 @@ After scraping the data and basic check of the data frame. I needed to clean the
 **Some example** of removing outliers
 
 Handle wiith which int.rate > 10 and fico > 1500 which is outliers
-![Outliers](ImageUrl)
+![Outliers](https://github.com/northpr/LendingClub/blob/main/images/Screen%20Shot%202564-10-28%20at%2011.15.00.png?raw=true)
 ```R
 ggplot(df) +
   aes(x = fico, y = int.rate) +
