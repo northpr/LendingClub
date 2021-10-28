@@ -104,6 +104,7 @@ df_cluster = df_cluster[c(1,2,6,7,9)]
 df_cluster = na.omit(df_cluster)
 df_scale = scale(df_cluster)
 km.out = kmeans(df_scale, 3 ,nstart=20)
+```
 
 Plot the cluster
 ```R
