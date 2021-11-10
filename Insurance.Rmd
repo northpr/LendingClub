@@ -1,14 +1,24 @@
----
-title: "Assignment"
+
 author: "Pat Patawee"
 date: "7/2/2021"
 output: html_document
----
+
+
+# Lending Clubs and Loan, Project Overview 
+This data uses publicly avaliable data from the LendingClub, there are 9,578 observarions, each representing a 3-year loan that was funded through the LendingClub platform between May, 2007 to February, 2010. We will try to predict **fico** and **not.fully.paid** by using other variables as independent variables
+
+Language in this notebook : R
+
+In this work I will included
+- Cleaning
+- Virtualization
+- Create the model (Linear Regression, Logistic Regression, Decision Tree, Random Forest)
+- Clustering to seperate the group of customer
 
 ## Setting up environment
 Import important libraries
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r}
+
 library(dplyr)
 library(ggplot2)
 library(caTools)
@@ -23,15 +33,20 @@ library(fastDummies)
 library(randomForest)
 library(pROC)
 library(kableExtra)
+
 ```
 
-
-
+Some of the variables are missing and changing variales type.
 
 ```{r}
 rawdf = read.csv("loans.csv")
 df = rawdf
 df = df[c(-1)]
+```
+
+Loading the data and delete the row number columns because it doesn't matter if we use it or not
+
+```{r}
 str(df)
 head(df)
 ```
@@ -45,7 +60,7 @@ df[cols_num] = sapply(df[cols_num],as.numeric)
 
 ```
 
-change purpose to factor type
+Change purpose to factor type because we couldn't know what type of purpose is greater than others. Then we should change to the factor type.
 ```{r}
 df$purpose <-factor(df$purpose)
 str(df)
@@ -65,6 +80,7 @@ df = na.omit(df)
 nrow(df)
 sum(is.na(df))
 ```
+
 Delete the row with missing values and we still have 9508 rows
 
 ```{r}
@@ -85,6 +101,8 @@ summary(df)
 <!-- str(tmpdata) -->
 <!-- df = tmpdata -->
 <!-- ``` -->
+
+After basic summary to the data we can feel that some variables such as int.rate, fico, days.with.cr.line, revol.bal, revol.util, inq.last.6mths and delinq.2yrs should be focus on. Due to the maximum of the data is not seems to be correct.
 
 
 Find the correlation of the data to fico
@@ -108,8 +126,15 @@ cor_matrix
 corrplot(cor_matrix,method='number')
 
 ```
+
+Plotting the correlation map for better understanding.
+ - The correlation between fico and int.rate is inverse so it means that higher the value of fico are the lower of interest rate.
+ - Fico and revol.util (-0.52)
+ - and others are also have high correlation between 2 variables
+
 ## Check for the outliers
 
+From what I've said before, some of the variables need to be check carefully because it's outliers and can break our model
 
 ```{r}
 
@@ -120,13 +145,15 @@ boxplot(fico~purpose,data=df,col='orange')
 ```
 
 
+
 ```{r}
 ggplot(df) +
   aes(x = fico, y = int.rate) +
   geom_point(shape = "circle", size = 1.5, colour = "#228B22")
 ```
 
-We have outliers, we need to handle with which int.rate > 10 and fico > 1500
+We have outliers on **fico** and **int.rate** as you can see from the graph. It's far beyond what we can imagine. we need to remove those specific int.rate and fico
+
 ```{r}
 df = df[-which(df$fico > 850),]
 df = df[-which(df$int.rate> 5),]
@@ -153,6 +180,7 @@ ggplot(df) +
   aes(x = fico, y = delinq.2yrs) +
   geom_point(shape = "circle", size = 1.5, colour = "#228B22")
 ```
+
 ```{r}
 bar<- ggplot(df,aes(factor(purpose)))+geom_bar(aes(fill=factor(not.fully.paid)),position='dodge')
 bar+theme(axis.text.x =element_text(angle = 90,size = 10,vjust = 0.5))+theme_bw()
@@ -165,9 +193,12 @@ boxplot(fico~purpose,data=df,col='orange')
 
 and now we delete the outliers of variable int.rate, revol.util and fico
 
-## Creating A Model
+# Create A Model - Supervised Learning
 ### Linear Model
-Split for linear regression by using split ratio at 0.7
+To predict the fico score from other variables
+
+Now we need to split before create linear regression model. I normally using split ratio at 0.7
+
 ```{r}
 set.seed(99)
 split = sample.split (df$fico, SplitRatio = 0.70)
@@ -186,8 +217,9 @@ df_test$FicoLinear = predict(linearMod,df_test)
 ```{r}
 LinearFiRM = rmse(df_test$fico, df_test$FicoLinear)
 LinearFiRM
+cat("The RMSE of Linear Regression model is", round(LinearFiRM,2))
 ```
-Now we have rmse value at 20.871 by using linear model
+Now we have rmse value
 
 ```{r}
 linearMod = lm(fico ~ int.rate * purpose+ int.rate*installment + dti*days.with.cr.line +delinq.2yrs*pub.rec*not.fully.paid,data = df_train)
@@ -208,8 +240,8 @@ df_train = subset(df, split == TRUE)
 df_test = subset(df, split == FALSE)
 ```
 
-# 4
 For Baseline Accuracy
+
 ```{r}
 t = table(df_test$not.fully.paid)
 t
@@ -219,29 +251,30 @@ cat("The accuracy is", round(accuracy,2))
 ```
 
 
-Baseline accuracy is at 84%
-
-# 5
 ```{r}
 LogRegModel = glm(not.fully.paid ~., family = binomial, df_train) 
 summary(LogRegModel)
+```
 
+```{r}
 df_test$PredictedRisk = predict(LogRegModel, type = "response", df_test)
 LogRegPredict = predict(LogRegModel, type = "response", df_test)
 plot(df_test$PredictedRisk)
+```
 
+```{r}
 df_test$PredictedRisk_Cat = ifelse(df_test$PredictedRisk > 0.25,1,0)
 t = table(df_test$not.fully.paid, df_test$PredictedRisk_Cat)
 ```
 
-Accuracy Test
+Find the accuracy of the model by using confusion matrix
 ```{r}
 t
 accuracy = sum(diag(t)/sum(t))
 cat("The accuracy is", round(accuracy,2))
 ```
 
-
+Find the area under the curve (AUC)
 ```{r}
 ROCRpred = prediction (LogRegPredict, df_test$not.fully.paid)
 ROCRperf = performance (ROCRpred, "tpr", "fpr")
@@ -252,30 +285,38 @@ AUCVal6 = as.numeric (performance (ROCRpred, "auc") @y.values)
 cat("at threshold = 0.25 AUC Value is :", AUCVal6)
 
 ```
-AUC Value around 0.68 at threshold = 0.25
 
 
-# 7
-What is the best threshold value to maximize true positive rate while keeping false positive at max 25% (or 0.25)?
+I want to leep the false positve at around 25% or 0.25 so I need to tune the threshold value to mazimize true positive rate
+
 ```{r}
 LogRegModel = glm(not.fully.paid ~ ., family = binomial, df_train) 
 summary(LogRegModel)
+```
 
+```{r}
 df_test$PredictedRisk = predict(LogRegModel, type = "response", df_test)
 LogRegPredict = predict(LogRegModel, type = "response", df_test)
 
 plot(df_test$PredictedRisk)
+```
 
+Create the confusion matrix to calculate the accuracy of the model
+
+```{r}
 df_test$PredictedRisk_Cat = ifelse(df_test$PredictedRisk > 0.185,1,0)
 t = table(df_test$not.fully.paid, df_test$PredictedRisk_Cat)
 
 t
+```
+
+Calculate the accuracy of the model
+```{r}
 accuracy = sum(diag(t)/sum(t))
 cat("The accuracy is", round(accuracy,2))
 ```
 
-Best threshold if we want to keep false potive at 0.25 is 0.185
-
+Area under curve
 ```{r}
 ROCRpred = prediction (LogRegPredict, df_test$not.fully.paid)
 ROCRperf = performance (ROCRpred, "tpr", "fpr")
@@ -285,11 +326,14 @@ as.numeric (performance (ROCRpred, "auc") @y.values)
 
 ```
 
-# 8 Simpler model
+#### I want to create simpler model
 Using only int.rate to create Regression model
 ```{r}
 LogRegModel = glm(not.fully.paid ~ int.rate , family = binomial, df_train) 
 summary(LogRegModel)
+```
+Predict the risk by using only interest rate
+```{r}
 
 df_test$PredictedRisk = predict(LogRegModel, type = "response", df_test)
 LogRegPredict = predict(LogRegModel, type = "response", df_test)
@@ -304,7 +348,7 @@ Accuracy of my simple model
 ```{r}
 t
 accuracy = sum(diag(t)/sum(t))
-cat("The accuracy is", round(accuracy,2))
+cat("The accuracy of the simple model is", round(accuracy,2))
 
 ```
 
@@ -319,54 +363,6 @@ AUCVal = as.numeric (performance (ROCRpred, "auc") @y.values)
 cat("The AUC Value of my model is", round(AUCVal,3))
 
 ```
-# 9
-```{r}
-investment = df_test
-investment$profit = (1 + investment$int.rate) ^ 3 - 1
-investment$profit[investment$PredictedRisk_Cat == 1] = -1
-summary(investment$profit)
-sum(investment$profit)
-
-head(investment)
-```
-
-# 10 
-What is the average profit of a $1 investment in one of these high-interest loans?
-What proportion of the high-interest loans were not paid back in full?
-
-```{r}
-HighInterest = df_test
-HighInterest = HighInterest[which(HighInterest$int.rate >0.15),]
-HighInterest$profit = (1 + HighInterest$int.rate) ^ 3 - 1
-HighInterest$profit[HighInterest$PredictedRisk_Cat ==1] = -1
-
-summary(HighInterest$profit)
-
-HighIntProfit = sum(HighInterest$profit)
-
-proportion = mean(HighInterest$PredictedRisk_Cat)
-proportion
-```
-10.1 Every 1 dollar you invest you will lose 8.88 cent ( or 0.08 dollars )by use the mean of profit variable
-10.2 Proportion of the high-interest loans were not paid back in full is 0.69 or 69%
-
-
-# 11 
-What is the profit to an investor who invested $1 in each of these 100 loans? How does this compare to investing in all loans?
-How does this compare to investing in all loans?
-```{r}
-
-SelectedLoans = sqldf("select *
-                      from HighInterest
-                      order by PredictedRisk")
-
-SelectedLoans = head(SelectedLoans,100)
-SelectedLProfit = sum(SelectedLoans$profit)
-SelectedLProfit - HighIntProfit
-```
-11.1 Profit of the investor who invested 1 dollars in each of the loans will receive profit around 52 dollars
-11.2 Compare to investing in all loans will receive more around 89 dollars
-
 
 # 12
 ### Decision Tree
@@ -383,23 +379,26 @@ Decision Tree with Regression predict fico
 prpDCTR = rpart(fico ~ ., df_train,control = rpart.control(cp= 0.004))
 PredictFico = predict(prpDCTR, df_test, method = "anova")
 plot(df_test$fico, PredictFico)
+```
+How the trees are
+```{r}
 DeciTrRM=sqrt(mean((df_test$fico - PredictFico)^2))
 rpart.plot(prpDCTR)
 rpart.rules(prpDCTR, cover=TRUE)
 plotcp(prpDCTR)
 
 ```
+Find the diffrent to compare between Linear Regression and Decision Tree
 ```{r}
-DeciTrRM
-LinearFiRM
+
 cat("Different of RMSE is Decision Tree Model RMSE - Linear Model RMSE: ",DeciTrRM - LinearFiRM)
 ```
-RMSE of Decision Tree is at 22.63 for Linear Regression is 20.67
-It means that Linear Regression slightly better because RMSE is lower than 1.96
 
 
 
-Decision Tree predict not.fully.paid
+
+#### Decision Tree with Classification predict **not.fully.paid**
+Split the data for train and test
 ```{r}
 set.seed(99)
 split = sample.split (df$not.fully.paid, SplitRatio = 0.70)
@@ -414,15 +413,10 @@ rpart.plot(nfpDCTM)
 printcp(nfpDCTM)
 plotcp(nfpDCTM)
 ```
-
-# ```{r}
-# nfpPred = predict(nfpDCTM, newdata=df_test,type='class')
-# table = table(nfpPred, df_test$not.fully.paid)
-# table
-# accuracy = sum(diag(table))/(sum(table))
-# cat("The accuracy is", round(accuracy,3))
+(accuracy,3))
 # ```
 
+Confusion Matrix for Decision Tree Model
 ```{r}
 nfpPred = predict(nfpDCTM, newdata=df_test,type='prob')
 nfpPred_Cat = ifelse(nfpPred[, 2] > 0.2, 1, 0)
@@ -432,25 +426,31 @@ table
 
 accuracy = sum(diag(table))/(sum(table))
 cat("The accuracy is", round(accuracy,2))
+```
 
+```{r}
 ROCRpred = prediction (nfpPred[, 2], df_test$not.fully.paid)
 AUCVal12 = as.numeric (performance (ROCRpred, "auc") @y.values) # higher auc value is better
 performance (ROCRpred, "tpr", "fpr")
 plot (ROCRperf, colorize = TRUE, print.cutoffs.at = seq (0, 1, by = 0.1), text.adj = c(-0.2, 1.7))
-
+cat("The AUC Value of my model is", round(AUCVal12,3))
 ```
 
-AUC of Logistic Regression is higher than AUC of task 12 by 0.09
+#### Summary of the Decision Tree Model
+The area under curve or the accuracy might not be good as logistic regression might it might easier to explain to the customer or the investor.
 ```{r}
-AUCVal6
-AUCVal12
-AUCVal6 - AUCVal12
+cat('Area under curve of logistic regression:',AUCVal6,'and area under curve of decision tree:',AUCVal12)
+
+cat('
+
+The difference of the area under curve between logistic regression and decision tree:',AUCVal6 - AUCVal12)
 ```
+
+
 
 
 ### Random Forest
-
-Random Forest with Regression to predict fico
+Random Forest with Regression to predict fico.
 ```{r}
 set.seed(99)
 split = sample.split (df$fico, SplitRatio = 0.70)
@@ -462,20 +462,19 @@ df_test = subset(df, split == FALSE)
 FicoForest = randomForest(fico~.,df_train, ntree=700, mtry=2)
 PredictForest = predict(FicoForest, df_test)
 ```
-
+Calculate the RMSE
 ```{r}
 RanForRM = round(sqrt(mean((df_test$fico - PredictForest)^2)),2)
-cat("rmse is:", RanForRM)
+
+cat('RMSE of Random Forest Model:',RanForRM,'and RMSE of Linear Regression Model:',LinearFiRM)
+
+
+cat("
+Different of RMSE is Random Forest Model RMSE - Linear Model RMSE: ",RanForRM - LinearFiRM)
 ```
+Random Forest Model perform slightly better than Linear Regression Model
 
-```{r}
-RanForRM
-LinearFiRM
-cat("Different of RMSE is Random Forest Model RMSE - Linear Model RMSE: ",RanForRM - LinearFiRM)
-```
-
-
-Random Forest with Classification to predict not.fully.paid
+#### Random Forest with Classification to predict **not.fully.paid**
 ```{r}
 set.seed(99)
 split = sample.split (df$not.fully.paid, SplitRatio = 0.70)
@@ -508,8 +507,8 @@ cat("The AUC Value of my model is", round(AUCVal,3))
 ```
 
 
-# 13
-## Clustering
+
+# Clustering
 ### Preparing Data for clustering
 ```{r}
 df = rawdf
@@ -542,6 +541,8 @@ df_scale = scale(df_cluster)
 km.out = kmeans(df_scale, 3 ,nstart=20)
 ```
 
+The suitable number of cluster in this datasets by using Elbow Method
+
 ```{r}
 N = 10
 information = rep ( NA, N )
@@ -553,11 +554,11 @@ for ( i in 1: N ){
 plot ( information ~ seq ( 1:N ), type = "b", pch = 1, col = 2, ylab = "Total within Sum of Squares", lwd=2,
        xlab = "Number of Clusters", main = "Selecting K by elbow method" )
 ```
-
+As we can see from the plot we could seperate the type of customer into 3 groups. Or clearly seperate at 2 groups
 ```{r}
 plot(df_cluster, col = km.out$cluster)
 ```
-
+Seperate the cluster into 3 groups
 
 ```{r}
 cluster1 = subset(df_cluster, km.out$cluster == 1)
@@ -565,3 +566,6 @@ cluster2 = subset(df_cluster, km.out$cluster == 2)
 cluster3 = subset(df_cluster, km.out$cluster == 3)
 
 ```
+
+# Final
+This is all I've done with this project, you might interest to create a column to invest from the loaner and calculate the chance to making profit for more..
